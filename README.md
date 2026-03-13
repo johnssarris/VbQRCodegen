@@ -2,21 +2,27 @@
 <img width="418" height="463" src="https://dl.unicontsoft.com/upload/pix/ss_qr_code5.png">
 
 ## VbQRCodegen
-QR Code generator library for VB6/VBA
+QR Code generator library for VBA (MS Office)
 </div>
 
 ### Description
 
 A single file QR Code generator based on https://www.nayuki.io/page/qr-code-generator-library
 
+### Requirements
+
+- MS Office with VBA (Excel, Access, Word, etc.)
+- Windows only (uses Windows GDI/OLE APIs)
+- Ensure **OLE Automation** is checked under Tools → References in the VBA editor
+
 ### Usage
 
-Just add `mdQRCodegen.bas` to your project and call `QRCodegenBarcode` function to retrieve an picture from a text or a byte-array like this:
+Add `mdQRCodegen.bas` to your VBA project and call `QRCodegenBarcode` to get a picture from text or a byte array:
 
-```
+```vba
     Set Image1.Picture = QRCodegenBarcode("Sample text")
 ```
-Note that you can stretch/zoom the returned picture to any size without loss of quality because the picture is using vectors to draw the QR Code.
+The returned picture uses vectors (Enhanced Metafile), so it scales to any size without loss of quality.
 
 ### MS Access Support
 

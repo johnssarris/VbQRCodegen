@@ -1,7 +1,7 @@
 Attribute VB_Name = "mdQRCodegen"
 '=========================================================================
 '
-' QR Code generator library (VB6/VBA)
+' QR Code generator library (VBA)
 '
 ' Copyright (c) Project Nayuki. (MIT License)
 ' https://www.nayuki.io/page/qr-code-generator-library
@@ -10,9 +10,6 @@ Attribute VB_Name = "mdQRCodegen"
 '
 '=========================================================================
 Option Explicit
-DefObj A-Z
-
-#Const HasPtrSafe = (VBA7 <> 0) Or (TWINBASIC <> 0)
 
 '=========================================================================
 ' Public enums
@@ -56,7 +53,6 @@ End Type
 ' API
 '=========================================================================
 
-#If HasPtrSafe Then
 Private Declare PtrSafe Function CreateEnhMetaFile Lib "gdi32" Alias "CreateEnhMetaFileW" (ByVal hdcRef As LongPtr, ByVal lpFileName As LongPtr, ByVal lpRect As LongPtr, ByVal lpDescription As LongPtr) As LongPtr
 Private Declare PtrSafe Function CloseEnhMetaFile Lib "gdi32" (ByVal hDC As LongPtr) As LongPtr
 Private Declare PtrSafe Function GetStockObject Lib "gdi32" (ByVal nIndex As Long) As Long
@@ -76,30 +72,6 @@ Private Declare PtrSafe Function StretchBlt Lib "gdi32" (ByVal hDC As LongPtr, B
 Private Declare PtrSafe Function GetDeviceCaps Lib "gdi32" (ByVal hDC As LongPtr, ByVal nIndex As Long) As Long
 Private Declare PtrSafe Function PolyPolygon Lib "gdi32" (ByVal hDC As LongPtr, lpPoint As Any, lpPolyCounts As Any, ByVal nCount As Long) As Long
 Private Declare PtrSafe Function SetMapMode Lib "gdi32" (ByVal hCD As LongPtr, ByVal nMapMode As Long) As Long
-#Else
-Private Enum LongPtr
-    [_]
-End Enum
-Private Declare Function CreateEnhMetaFile Lib "gdi32" Alias "CreateEnhMetaFileW" (ByVal hdcRef As LongPtr, ByVal lpFileName As LongPtr, ByVal lpRect As LongPtr, ByVal lpDescription As LongPtr) As LongPtr
-Private Declare Function CloseEnhMetaFile Lib "gdi32" (ByVal hDC As LongPtr) As LongPtr
-Private Declare Function GetStockObject Lib "gdi32" (ByVal nIndex As Long) As Long
-Private Declare Function OleCreatePictureIndirect Lib "oleaut32" (lpPictDesc As PICTDESC, riid As Any, ByVal fPictureOwnsHandle As Long, lpvObj As IPicture) As Long
-Private Declare Function FillRect Lib "user32" (ByVal hDC As LongPtr, lpRect As RECT, ByVal hBrush As LongPtr) As Long
-Private Declare Function CreateSolidBrush Lib "gdi32" (ByVal crColor As Long) As LongPtr
-Private Declare Function DeleteObject Lib "gdi32" (ByVal hObject As LongPtr) As Long
-Private Declare Function WideCharToMultiByte Lib "kernel32" (ByVal CodePage As Long, ByVal dwFlags As Long, ByVal lpWideCharStr As LongPtr, ByVal cchWideChar As Long, lpMultiByteStr As Any, ByVal cchMultiByte As LongPtr, ByVal lpDefaultChar As LongPtr, ByVal lpUsedDefaultChar As LongPtr) As Long
-Private Declare Function SelectObject Lib "gdi32" (ByVal hDC As LongPtr, ByVal hObject As LongPtr) As LongPtr
-Private Declare Function SHCreateMemStream Lib "shlwapi" Alias "#12" (pInit As Any, ByVal cbInit As Long) As stdole.IUnknown
-Private Declare Function DispCallFunc Lib "oleaut32" (ByVal pvInstance As LongPtr, ByVal oVft As LongPtr, ByVal lCc As Long, ByVal vtReturn As VbVarType, ByVal cActuals As Long, prgVt As Any, prgpVarg As Any, pvargResult As Variant) As Long
-Private Declare Function CreateCompatibleDC Lib "gdi32" (ByVal hDC As LongPtr) As LongPtr
-Private Declare Function DeleteDC Lib "gdi32" (ByVal hDC As LongPtr) As Long
-Private Declare Function CreateDIBSection Lib "gdi32" (ByVal hDC As LongPtr, lpBitsInfo As Any, ByVal wUsage As Long, lpBits As LongPtr, ByVal hSection As LongPtr, ByVal dwOffset As Long) As LongPtr
-Private Declare Function SetStretchBltMode Lib "gdi32" (ByVal hDC As LongPtr, ByVal nStretchMode As Long) As Long
-Private Declare Function StretchBlt Lib "gdi32" (ByVal hDC As LongPtr, ByVal X As Long, ByVal Y As Long, ByVal nWidth As Long, ByVal nHeight As Long, ByVal hdcSrc As LongPtr, ByVal xSrc As Long, ByVal ySrc As Long, ByVal nSrcWidth As Long, ByVal nSrcHeight As Long, ByVal dwRop As Long) As Long
-Private Declare Function GetDeviceCaps Lib "gdi32" (ByVal hDC As LongPtr, ByVal nIndex As Long) As Long
-Private Declare Function PolyPolygon Lib "gdi32" (ByVal hDC As LongPtr, lpPoint As Any, lpPolyCounts As Any, ByVal nCount As Long) As Long
-Private Declare Function SetMapMode Lib "gdi32" (ByVal hCD As LongPtr, ByVal nMapMode As Long) As Long
-#End If
 
 Private Type POINTAPI
     X                   As Long
@@ -153,10 +125,10 @@ Private Const TURN_LEFT                 As Long = 2
 Private Const TURN_RIGHT                As Long = 3
 Private Const WIDE_LEFT                 As Long = 4
 Private Const WIDE_RIGHT                As Long = 5
-Private Const SUPERWIDE_LEFT            As Long = 6 '--- not used
 Private Const SUPERWIDE_RIGHT           As Long = 7
 Private Const SKIP_TO                   As Long = 8
 
+Private mbInitialized                                As Boolean
 Private LNG_POW2(0 To 31)                            As Long
 Private ECC_CODEWORDS_PER_BLOCK(0 To 3, 0 To 40)     As Long
 Private NUM_ERROR_CORRECTION_BLOCKS(0 To 3, 0 To 40) As Long
@@ -751,10 +723,11 @@ End Function
 Private Sub pvInit()
     Dim vSplit          As Variant
     Dim lIdx            As Long
-    
-    If ECC_CODEWORDS_PER_BLOCK(0, 0) <> 0 Then
+
+    If mbInitialized Then
         Exit Sub
     End If
+    mbInitialized = True
     LNG_POW2(0) = 1
     For lIdx = 1 To UBound(LNG_POW2) - 1
         LNG_POW2(lIdx) = LNG_POW2(lIdx - 1) * 2
@@ -919,20 +892,25 @@ Private Sub pvReedSolomonComputeRemainder( _
 End Sub
 
 Private Function pvReedSolomonMultiply(ByVal bX As Byte, ByVal bY As Byte) As Byte
-    Dim lIdx            As Long
-    Dim lTemp           As Long
-    
+    ' Multiply two elements of GF(2^8) using the primitive polynomial x^8+x^4+x^3+x^2+1 (= 0x11D).
+    ' This is a standard "Russian peasant multiplication" algorithm for Galois fields.
+    Const GF_PRIMITIVE_POLY As Long = &H11D
+    Dim lIdx    As Long
+    Dim lResult As Long
+    Dim lPoly   As Long
+
     For lIdx = 7 To 0 Step -1
-        If (pvReedSolomonMultiply And &H80) <> 0 Then
-            lTemp = &H11D
+        If (lResult And &H80) <> 0 Then
+            lPoly = GF_PRIMITIVE_POLY
         Else
-            lTemp = 0
+            lPoly = 0
         End If
-        pvReedSolomonMultiply = ((pvReedSolomonMultiply * 2) Xor lTemp) And &HFF
+        lResult = ((lResult * 2) Xor lPoly) And &HFF
         If (bY And LNG_POW2(lIdx)) <> 0 Then
-            pvReedSolomonMultiply = pvReedSolomonMultiply Xor bX
+            lResult = lResult Xor bX
         End If
     Next
+    pvReedSolomonMultiply = lResult
 End Function
 
 Private Sub pvInitializeFunctionModules(ByVal lVersion As Long, baQrCode() As Byte)
